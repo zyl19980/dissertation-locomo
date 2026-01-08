@@ -7,6 +7,7 @@ import os
 
 import google.generativeai as genai
 from anthropic import Anthropic
+import requests
 
 
 def get_openai_embedding(texts, model="text-embedding-ada-002"):
@@ -87,6 +88,72 @@ def run_gemini(model, content: str, max_tokens: int = 0):
     except Exception as e:
         print(f'{type(e).__name__}: {e}')
         return None
+
+
+def run_ollama(query, num_tokens_request=1000, model='qwen2.5:3b',
+               temperature=1.0, wait_time=1, host='http://localhost:11434'):
+    """
+    调用本地 Ollama 模型
+
+    Args:
+        query: 查询文本
+        num_tokens_request: 请求的最大token数
+        model: Ollama 模型名称,默认为 'qwen2.5:3b'
+        temperature: 温度参数
+        wait_time: 重试等待时间
+        host: Ollama API 地址,默认为 localhost:11434
+
+    Returns:
+        模型生成的文本
+    """
+    url = f"{host}/api/generate"
+
+    payload = {
+        "model": model,
+        "prompt": query,
+        "stream": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": num_tokens_request
+        }
+    }
+
+    completion = None
+    current_wait = wait_time
+
+    while completion is None:
+        try:
+            response = requests.post(url, json=payload, timeout=300)
+            response.raise_for_status()
+            result = response.json()
+            completion = result.get('response', '')
+
+            if not completion:
+                raise ValueError("Empty response from Ollama")
+
+        except requests.exceptions.ConnectionError as e:
+            print(f"无法连接到 Ollama 服务: {e}")
+            print(f"请确保 Ollama 已启动并运行在 {host}")
+            print(f"等待 {current_wait} 秒后重试...")
+            time.sleep(current_wait)
+            current_wait = current_wait * 2
+
+        except requests.exceptions.Timeout as e:
+            print(f"Ollama 请求超时: {e}; 等待 {current_wait} 秒后重试")
+            time.sleep(current_wait)
+            current_wait = current_wait * 2
+
+        except requests.exceptions.RequestException as e:
+            print(f"Ollama API 请求错误: {e}; 等待 {current_wait} 秒后重试")
+            time.sleep(current_wait)
+            current_wait = current_wait * 2
+
+        except Exception as e:
+            print(f"发生未知错误: {e}; 等待 {current_wait} 秒后重试")
+            time.sleep(current_wait)
+            current_wait = current_wait * 2
+
+    return completion.strip()
 
 
 def run_chatgpt(query, num_gen=1, num_tokens_request=1000, 

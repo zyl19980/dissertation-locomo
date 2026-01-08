@@ -7,7 +7,7 @@ import random
 import os, json
 from tqdm import tqdm
 import time
-from global_methods import run_chatgpt
+from global_methods import run_chatgpt, run_ollama
 from task_eval.rag_utils import get_embeddings
 import tiktoken
 import numpy as np
@@ -19,7 +19,11 @@ MAX_LENGTH={'gpt-4-turbo': 128000,
             'gpt-3.5-turbo-8k': 8000,
             'gpt-3.5-turbo-4k': 4000,
             'gpt-3.5-turbo': 4096,
-            'gpt-4-32k': 320000}
+            'gpt-4-32k': 320000,
+            'ollama': 8192,  # Ollama 模型默认上下文长度
+            'qwen2.5:3b': 32768,  # Qwen2.5-3B 上下文长度
+            'qwen2.5:7b': 32768,  # Qwen2.5-7B 上下文长度
+            'qwen3-8b': 32768}  # Qwen3-8B 上下文长度
 PER_QA_TOKEN_BUDGET = 50
 
 QA_PROMPT = """
@@ -283,11 +287,18 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
         if args.batch_size == 1:
 
             query = query_conv + '\n\n' + QA_PROMPT.format(questions[0]) if len(cat_5_idxs) == 0 else query_conv + '\n\n' + QA_PROMPT_CAT_5.format(questions[0])
-            answer = run_chatgpt(query, num_gen=1, num_tokens_request=32, 
-                    model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
-                    use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
-                    temperature=0, wait_time=2)
-            
+
+            # 判断是否使用 Ollama
+            if 'ollama' in args.model or 'qwen' in args.model.lower():
+                answer = run_ollama(query, num_tokens_request=32,
+                        model=args.model if args.model != 'ollama' else 'qwen3-8b',
+                        temperature=0, wait_time=2)
+            else:
+                answer = run_chatgpt(query, num_gen=1, num_tokens_request=32,
+                        model='chatgpt' if 'gpt-3.5' in args.model else args.model,
+                        use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False,
+                        temperature=0, wait_time=2)
+
             if len(cat_5_idxs) > 0:
                 answer = get_cat_5_answer(answer, cat_5_answers[0])
 
@@ -298,7 +309,7 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
         else:
             # query = query_conv + '\n' + QA_PROMPT_BATCH + "\n".join(["QUESTION: %s" % q for q in questions])
             query = query_conv + '\n' + question_prompt
-            
+
             trials = 0
             while trials < 3:
                 try:
@@ -306,10 +317,18 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                     print("Trial %s/3" % trials)
                     # print("Sending query of %s tokens" % len(encoding.encode(query)))
                     # print("Trying with answer token budget = %s per question" % PER_QA_TOKEN_BUDGET)
-                    answer = run_chatgpt(query, num_gen=1, num_tokens_request=args.batch_size*PER_QA_TOKEN_BUDGET, 
-                            model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
-                            use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
-                            temperature=0, wait_time=2)
+
+                    # 判断是否使用 Ollama
+                    if 'ollama' in args.model or 'qwen' in args.model.lower():
+                        answer = run_ollama(query, num_tokens_request=args.batch_size*PER_QA_TOKEN_BUDGET,
+                                model=args.model if args.model != 'ollama' else 'qwen3-8b',
+                                temperature=0, wait_time=2)
+                    else:
+                        answer = run_chatgpt(query, num_gen=1, num_tokens_request=args.batch_size*PER_QA_TOKEN_BUDGET,
+                                model='chatgpt' if 'gpt-3.5' in args.model else args.model,
+                                use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False,
+                                temperature=0, wait_time=2)
+
                     answer = answer.replace('\\"', "'").replace('json','').replace('`','').strip().replace("\\'", "")
                     answers = process_ouput(answer.strip())
                     break
