@@ -39,8 +39,8 @@ def check_ollama_service():
 
 def main():
     parser = argparse.ArgumentParser(description='Ollama 模型评估脚本')
-    parser.add_argument('--model', type=str, default='qwen3-8b',
-                        help='Ollama 模型名称 (默认: qwen3-8b)')
+    parser.add_argument('--model', type=str, default='qwen3:8b',
+                        help='Ollama 模型名称 (默认: qwen3:8b)')
     parser.add_argument('--data-file', type=str, default='data/locomo10.json',
                         help='数据文件路径 (默认: data/locomo10.json)')
     parser.add_argument('--out-dir', type=str, default='outputs',
@@ -60,6 +60,10 @@ def main():
                         help='RAG 模式下检索的 top-k 数量')
     parser.add_argument('--emb-dir', type=str, default='outputs',
                         help='嵌入向量存储目录')
+    parser.add_argument('--use-extended-metrics', action='store_true',
+                        help='计算扩展指标 (BLEU-1, ROUGE-2, ROUGE-L, METEOR, SBERT)')
+    parser.add_argument('--no-sbert', action='store_true',
+                        help='跳过 SBERT 相似度计算 (加快速度)')
 
     args = parser.parse_args()
 
@@ -114,6 +118,12 @@ def main():
             '--emb-dir', args.emb_dir,
         ])
 
+    if args.use_extended_metrics:
+        cmd.append('--use-extended-metrics')
+
+    if args.no_sbert:
+        cmd.append('--no-sbert')
+
     print("运行评估命令:")
     print(" ".join(cmd))
     print()
@@ -124,7 +134,7 @@ def main():
 
     # 运行评估
     try:
-        result = subprocess.run(cmd, cwd=project_root)
+        result = subprocess.run(cmd, cwd=project_root, capture_output=False, text=True)
 
         if result.returncode == 0:
             print()

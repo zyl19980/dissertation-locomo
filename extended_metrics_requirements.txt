@@ -1,0 +1,17 @@
+# 扩展评估指标依赖
+# 使用: pip install -r extended_metrics_requirements.txt
+
+# NLTK - 自然语言处理工具包 (BLEU, METEOR)
+nltk>=3.8.1
+
+# ROUGE - 文本摘要评估指标
+rouge-score>=0.1.2
+
+# Sentence Transformers - SBERT 语义相似度
+sentence-transformers>=2.2.2
+
+# PyTorch - Sentence Transformers 的依赖
+torch>=2.0.0
+
+# 可选: 如果 torch 安装有问题,可以使用 CPU 版本
+# torch>=2.0.0+cpu -f https://download.pytorch.org/whl/torch_stable.html

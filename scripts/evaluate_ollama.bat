@@ -13,8 +13,8 @@ set QA_OUTPUT_FILE=locomo10_qa.json
 
 REM Model configuration
 REM You can change the model name to any Ollama model you have installed
-REM Examples: qwen3-8b, qwen2.5:7b, qwen2.5:3b, llama3, mistral, etc.
-set OLLAMA_MODEL=qwen3-8b
+REM Examples: qwen3:8b, qwen2.5:7b, qwen2.5:3b, llama3, mistral, etc.
+set OLLAMA_MODEL=qwen3:8b
 
 REM Batch size (recommended: 1 for better stability)
 set BATCH_SIZE=1

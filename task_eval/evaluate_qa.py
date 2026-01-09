@@ -13,6 +13,7 @@ from task_eval.claude_utils import get_claude_answers
 from task_eval.gemini_utils import get_gemini_answers
 from task_eval.hf_llm_utils import init_hf_model, get_hf_answers
 from task_eval.ollama_utils import get_ollama_answers
+from task_eval.extended_metrics import evaluate_qa_with_extended_metrics, print_metric_summary
 
 import numpy as np
 import google.generativeai as genai
@@ -31,6 +32,10 @@ def parse_args():
     parser.add_argument('--top-k', type=int, default=5)
     parser.add_argument('--retriever', type=str, default="contriever")
     parser.add_argument('--overwrite', action="store_true")
+    parser.add_argument('--use-extended-metrics', action="store_true",
+                        help='计算扩展指标 (BLEU-1, ROUGE-2, ROUGE-L, METEOR, SBERT)')
+    parser.add_argument('--no-sbert', action="store_true",
+                        help='跳过 SBERT 相似度计算 (加快速度)')
     args = parser.parse_args()
     return args
 
@@ -116,9 +121,95 @@ def main():
     with open(args.out_file, 'w') as f:
         json.dump(list(out_samples.values()), f, indent=2)
 
-    
+
     analyze_aggr_acc(args.data_file, args.out_file, args.out_file.replace('.json', '_stats.json'),
                 model_key, model_key + '_f1', rag=args.use_rag)
+
+    # 计算扩展指标 (如果启用)
+    if args.use_extended_metrics:
+        print("\n" + "="*60)
+        print("计算扩展评估指标...")
+        print("="*60)
+
+        # 收集所有问答对
+        all_qas = []
+        for sample in out_samples.values():
+            all_qas.extend(sample['qa'])
+
+        # 计算扩展指标
+        use_sbert = not args.no_sbert
+        extended_results = evaluate_qa_with_extended_metrics(
+            all_qas,
+            eval_key=prediction_key,
+            use_sbert=use_sbert
+        )
+
+        # 打印摘要
+        print_metric_summary(extended_results)
+
+        # 将扩展指标添加到每个问答对
+        qa_idx = 0
+        for sample in out_samples.values():
+            for i in range(len(sample['qa'])):
+                if qa_idx < len(extended_results['bleu1']):
+                    sample['qa'][i][model_key + '_bleu1'] = round(extended_results['bleu1'][qa_idx], 4)
+                    sample['qa'][i][model_key + '_rouge2'] = round(extended_results['rouge2'][qa_idx], 4)
+                    sample['qa'][i][model_key + '_rougel'] = round(extended_results['rougel'][qa_idx], 4)
+                    sample['qa'][i][model_key + '_meteor'] = round(extended_results['meteor'][qa_idx], 4)
+                    if use_sbert:
+                        sample['qa'][i][model_key + '_sbert'] = round(extended_results['sbert'][qa_idx], 4)
+                qa_idx += 1
+
+        # 保存更新后的结果
+        with open(args.out_file, 'w') as f:
+            json.dump(list(out_samples.values()), f, indent=2)
+
+        # 保存扩展指标统计
+        extended_stats = {
+            'model': model_key,
+            'total_questions': len(all_qas),
+            'metrics': {
+                'bleu1': {
+                    'mean': float(np.mean(extended_results['bleu1'])),
+                    'std': float(np.std(extended_results['bleu1'])),
+                    'min': float(np.min(extended_results['bleu1'])),
+                    'max': float(np.max(extended_results['bleu1']))
+                },
+                'rouge2': {
+                    'mean': float(np.mean(extended_results['rouge2'])),
+                    'std': float(np.std(extended_results['rouge2'])),
+                    'min': float(np.min(extended_results['rouge2'])),
+                    'max': float(np.max(extended_results['rouge2']))
+                },
+                'rougel': {
+                    'mean': float(np.mean(extended_results['rougel'])),
+                    'std': float(np.std(extended_results['rougel'])),
+                    'min': float(np.min(extended_results['rougel'])),
+                    'max': float(np.max(extended_results['rougel']))
+                },
+                'meteor': {
+                    'mean': float(np.mean(extended_results['meteor'])),
+                    'std': float(np.std(extended_results['meteor'])),
+                    'min': float(np.min(extended_results['meteor'])),
+                    'max': float(np.max(extended_results['meteor']))
+                }
+            }
+        }
+
+        if use_sbert:
+            extended_stats['metrics']['sbert'] = {
+                'mean': float(np.mean(extended_results['sbert'])),
+                'std': float(np.std(extended_results['sbert'])),
+                'min': float(np.min(extended_results['sbert'])),
+                'max': float(np.max(extended_results['sbert']))
+            }
+
+        extended_stats_file = args.out_file.replace('.json', '_extended_stats.json')
+        with open(extended_stats_file, 'w') as f:
+            json.dump(extended_stats, f, indent=2)
+
+        print(f"✓ 扩展指标已保存到: {extended_stats_file}")
+
     # encoder=tiktoken.encoding_for_model(args.model))
 
 

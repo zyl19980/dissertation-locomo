@@ -14,6 +14,7 @@ MAX_LENGTH={
     'qwen2.5:3b': 32768,
     'qwen2.5:7b': 32768,
     'qwen3-8b': 32768,
+    'qwen3:8b': 32768,  # Ollama 的标准格式
     'qwen2.5:14b': 32768,
     'qwen2.5:32b': 32768,
     'qwen2.5:72b': 32768,
@@ -225,7 +226,7 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
                 answer = run_ollama(
                     query=query,
                     num_tokens_request=100,
-                    model=args.model if args.model != 'ollama' else 'qwen3-8b',
+                    model=args.model if args.model != 'ollama' else 'qwen3:8b',
                     temperature=0,
                     wait_time=2
                 )

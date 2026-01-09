@@ -7,8 +7,8 @@ source scripts/env.sh
 
 # Model configuration
 # You can change the model name to any Ollama model you have installed
-# Examples: qwen3-8b, qwen2.5:7b, qwen2.5:3b, llama3, mistral, etc.
-OLLAMA_MODEL="qwen3-8b"
+# Examples: qwen3:8b, qwen2.5:7b, qwen2.5:3b, llama3, mistral, etc.
+OLLAMA_MODEL="qwen3:8b"
 
 # Batch size (recommended: 1 for better stability, can try higher values for speed)
 BATCH_SIZE=1
