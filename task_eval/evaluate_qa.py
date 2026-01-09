@@ -12,6 +12,7 @@ from task_eval.gpt_utils import get_gpt_answers
 from task_eval.claude_utils import get_claude_answers
 from task_eval.gemini_utils import get_gemini_answers
 from task_eval.hf_llm_utils import init_hf_model, get_hf_answers
+from task_eval.ollama_utils import get_ollama_answers
 
 import numpy as np
 import google.generativeai as genai
@@ -56,9 +57,14 @@ def main():
             model_name = "models/gemini-1.0-pro-latest"
 
         gemini_model = genai.GenerativeModel(model_name)
-    
+
     elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
         hf_pipeline, hf_model_name = init_hf_model(args)
+
+    elif 'ollama' in args.model or 'qwen' in args.model.lower():
+        # Ollama 本地模型,无需设置 API key
+        print(f"Using Ollama local model: {args.model}")
+        print("Make sure Ollama service is running (default: http://localhost:11434)")
 
     else:
         raise NotImplementedError
@@ -92,6 +98,8 @@ def main():
             answers = get_gemini_answers(gemini_model, data, out_data, prediction_key, args)
         elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
             answers = get_hf_answers(data, out_data, args, hf_pipeline, hf_model_name)
+        elif 'ollama' in args.model or 'qwen' in args.model.lower():
+            answers = get_ollama_answers(data, out_data, prediction_key, args)
         else:
             raise NotImplementedError
 
