@@ -175,16 +175,16 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
 
             # 检查是否需要生成预测
             if prediction_key not in out_data['qa'][i] or args.overwrite:
+                # 检查是否有必需的字段
+                if 'answer' not in qa:
+                    print(f"警告: 问题 {i} 缺少 'answer' 字段,设置空预测答案")
+                    # 设置空预测答案,而不是跳过
+                    out_data['qa'][i][prediction_key] = ""
+                    continue
+
                 include_idxs.append(i)
             else:
                 print(f"Skipping question: {qa['question']}")
-                continue
-
-            # 检查是否有必需的字段
-            if 'answer' not in qa:
-                print(f"警告: 问题 {i} 缺少 'answer' 字段,跳过")
-                # 从 include_idxs 中移除
-                include_idxs.pop()
                 continue
 
             if 'category' not in qa:

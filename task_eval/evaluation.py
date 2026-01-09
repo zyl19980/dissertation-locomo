@@ -196,13 +196,29 @@ def eval_question_answering(qas, eval_key='prediction', metric='f1'):
     answer_lengths = []
     for i, line in enumerate(qas):
         # line = json.loads(line)
+
+        # 检查是否有预测键，如果没有则跳过该问题
+        if eval_key not in line:
+            print(f"警告: 问题 {i} 缺少预测键 '{eval_key}',跳过评估")
+            # 添加 0 分以保持索引对应
+            all_ems.append(0)
+            all_recall.append(0)
+            continue
+
+        # 检查是否有 answer 字段
+        if 'answer' not in line:
+            print(f"警告: 问题 {i} 缺少 'answer' 字段,跳过评估")
+            all_ems.append(0)
+            all_recall.append(0)
+            continue
+
         if type(line[eval_key]) == list:
             answer = line['answer']
         else:
             answer = str(line['answer'])
         if line['category'] == 3:
             answer = answer.split(';')[0].strip()
-        
+
         output = line[eval_key]
         
         # single-hop, temporal, open-domain eval without splitting for sub-answers 

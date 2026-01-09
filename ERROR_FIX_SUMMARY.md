@@ -2,26 +2,51 @@
 
 ## 🐛 已修复的问题
 
-### 1. KeyError: 'answer'
-**问题**: 某些问题数据缺少 'answer' 字段,导致程序崩溃
+### 1. KeyError: 'answer' 和 KeyError: 'qwen2.5:3b_prediction'
+**问题**:
+- 某些问题数据缺少 'answer' 字段
+- 当跳过缺少 'answer' 字段的问题后，这些问题没有生成 `prediction_key`
+- 后续评估代码尝试访问不存在的键导致 KeyError 崩溃
 
 **修复**:
-- 在 `ollama_utils.py` 中添加字段存在性检查
-- 如果缺少 'answer' 字段,跳过该问题并记录警告
-- 如果缺少 'category' 字段,使用默认值 1
-
-**代码位置**: `task_eval/ollama_utils.py:183-192`
+1. **在 `ollama_utils.py` 中** (lines 176-188):
+   - 检查问题是否缺少 'answer' 字段
+   - **关键改进**: 对于缺少 'answer' 的问题，设置空预测答案（`""`）而不是完全跳过
+   - 这确保每个问题都有 prediction_key，避免后续评估时的 KeyError
 
 ```python
-# 检查是否有必需的字段
-if 'answer' not in qa:
-    print(f"警告: 问题 {i} 缺少 'answer' 字段,跳过")
-    include_idxs.pop()  # 从处理列表中移除
+# 检查是否需要生成预测
+if prediction_key not in out_data['qa'][i] or args.overwrite:
+    # 检查是否有必需的字段
+    if 'answer' not in qa:
+        print(f"警告: 问题 {i} 缺少 'answer' 字段,设置空预测答案")
+        # 设置空预测答案,而不是跳过
+        out_data['qa'][i][prediction_key] = ""
+        continue
+
+    include_idxs.append(i)
+```
+
+2. **在 `evaluation.py` 中** (lines 200-213):
+   - 在访问 `eval_key` 之前检查其是否存在
+   - 如果缺少预测键或 answer 字段，给该问题评分为 0 而不是崩溃
+   - 这提供了双重保护
+
+```python
+# 检查是否有预测键，如果没有则跳过该问题
+if eval_key not in line:
+    print(f"警告: 问题 {i} 缺少预测键 '{eval_key}',跳过评估")
+    # 添加 0 分以保持索引对应
+    all_ems.append(0)
+    all_recall.append(0)
     continue
 
-if 'category' not in qa:
-    print(f"警告: 问题 {i} 缺少 'category' 字段,使用默认类别 1")
-    qa['category'] = 1
+# 检查是否有 answer 字段
+if 'answer' not in line:
+    print(f"警告: 问题 {i} 缺少 'answer' 字段,跳过评估")
+    all_ems.append(0)
+    all_recall.append(0)
+    continue
 ```
 
 ### 2. Empty response from Ollama
