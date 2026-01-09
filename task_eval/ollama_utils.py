@@ -180,6 +180,17 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
                 print(f"Skipping question: {qa['question']}")
                 continue
 
+            # 检查是否有必需的字段
+            if 'answer' not in qa:
+                print(f"警告: 问题 {i} 缺少 'answer' 字段,跳过")
+                # 从 include_idxs 中移除
+                include_idxs.pop()
+                continue
+
+            if 'category' not in qa:
+                print(f"警告: 问题 {i} 缺少 'category' 字段,使用默认类别 1")
+                qa['category'] = 1
+
             # 根据问题类别构造提示
             if qa['category'] == 2:
                 questions.append(qa['question'] + ' Use DATE of CONVERSATION to answer with an approximate date.')
@@ -228,19 +239,28 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
                     num_tokens_request=100,
                     model=args.model if args.model != 'ollama' else 'qwen3:8b',
                     temperature=0,
-                    wait_time=2
+                    wait_time=2,
+                    max_retries=3
                 )
 
-                if len(cat_5_idxs) > 0:
+                # 如果 answer 为空,记录警告但继续
+                if not answer or answer.strip() == "":
+                    print(f"警告: Ollama 返回空答案,将使用空字符串")
+                    answer = ""
+
+                if len(cat_5_idxs) > 0 and answer:
                     answer = get_cat_5_answer(answer, cat_5_answers[0])
 
-                out_data['qa'][include_idxs[0]][prediction_key] = answer.strip()
+                out_data['qa'][include_idxs[0]][prediction_key] = answer.strip() if answer else ""
                 if args.use_rag:
                     out_data['qa'][include_idxs[0]][prediction_key + '_context'] = context_ids
 
             except Exception as e:
-                print(f"Error processing question: {e}")
+                print(f"错误: 处理问题失败: {e}")
+                print(f"问题索引: {include_idxs[0]}")
+                # 设置空答案而不是崩溃
                 out_data['qa'][include_idxs[0]][prediction_key] = ""
+                # 继续处理下一个问题
 
         else:
             # 批量处理
@@ -248,6 +268,7 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
 
             trials = 0
             answer = None
+            answers = None
             while trials < 3:
                 try:
                     trials += 1
@@ -256,10 +277,20 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
                     answer = run_ollama(
                         query=query,
                         num_tokens_request=args.batch_size * PER_QA_TOKEN_BUDGET,
-                        model=args.model if args.model != 'ollama' else 'qwen3-8b',
+                        model=args.model if args.model != 'ollama' else 'qwen3:8b',
                         temperature=0,
-                        wait_time=2
+                        wait_time=2,
+                        max_retries=3
                     )
+
+                    # 检查空响应
+                    if not answer or answer.strip() == "":
+                        print(f"警告: Ollama 返回空答案 (尝试 {trials}/3)")
+                        if trials == 3:
+                            print("达到最大尝试次数,使用空答案")
+                            answers = {str(k): "" for k in range(len(include_idxs))}
+                            break
+                        continue
 
                     answer = answer.replace('\\"', "'").replace('json', '').replace('`', '').strip().replace("\\'", "")
                     answers = process_ouput(answer.strip())
@@ -268,39 +299,45 @@ def get_ollama_answers(in_data, out_data, prediction_key, args):
                 except json.decoder.JSONDecodeError as e:
                     print(f'JSON decode error at trial {trials}/3: {e}')
                     if trials == 3:
-                        print("Failed after 3 trials")
-                        # 使用空答案
+                        print("JSON 解析失败,使用空答案")
                         answers = {str(k): "" for k in range(len(include_idxs))}
                 except Exception as e:
                     print(f'Error at trial {trials}/3: {e}')
                     if trials == 3:
-                        print("Failed after 3 trials")
+                        print("达到最大尝试次数,使用空答案")
                         answers = {str(k): "" for k in range(len(include_idxs))}
+
+            # 确保 answers 不为 None
+            if answers is None:
+                print("警告: answers 为 None,使用空字典")
+                answers = {str(k): "" for k in range(len(include_idxs))}
 
             # 处理批量答案
             for k, idx in enumerate(include_idxs):
                 try:
+                    # 检查答案是否存在
+                    if str(k) not in answers:
+                        print(f"警告: 问题 {k} 没有答案,使用空字符串")
+                        out_data['qa'][idx][prediction_key] = ""
+                        continue
+
+                    answer_text = answers[str(k)]
+
                     if k in cat_5_idxs:
-                        predicted_answer = get_cat_5_answer(answers[str(k)], cat_5_answers[cat_5_idxs.index(k)])
+                        predicted_answer = get_cat_5_answer(str(answer_text), cat_5_answers[cat_5_idxs.index(k)])
                         out_data['qa'][idx][prediction_key] = predicted_answer
                     else:
                         try:
-                            out_data['qa'][idx][prediction_key] = str(answers[str(k)]).replace('(a)', '').replace('(b)', '').strip()
+                            out_data['qa'][idx][prediction_key] = str(answer_text).replace('(a)', '').replace('(b)', '').strip()
                         except:
-                            out_data['qa'][idx][prediction_key] = ', '.join([str(n) for n in list(answers[str(k)].values())])
-                except:
-                    try:
-                        answers_list = json.loads(answer.strip()) if isinstance(answer, str) else answers
-                        if k in cat_5_idxs:
-                            predicted_answer = get_cat_5_answer(answers_list[k], cat_5_answers[cat_5_idxs.index(k)])
-                            out_data['qa'][idx][prediction_key] = predicted_answer
-                        else:
-                            out_data['qa'][idx][prediction_key] = answers_list[k].replace('(a)', '').replace('(b)', '').strip()
-                    except:
-                        if k in cat_5_idxs:
-                            predicted_answer = get_cat_5_answer(answer.strip() if answer else "", cat_5_answers[cat_5_idxs.index(k)])
-                            out_data['qa'][idx][prediction_key] = predicted_answer
-                        else:
-                            out_data['qa'][idx][prediction_key] = ""
+                            try:
+                                out_data['qa'][idx][prediction_key] = ', '.join([str(n) for n in list(answer_text.values())])
+                            except:
+                                out_data['qa'][idx][prediction_key] = str(answer_text)
+
+                except Exception as e:
+                    print(f"错误: 处理答案 {k} 失败: {e}")
+                    # 设置空答案
+                    out_data['qa'][idx][prediction_key] = ""
 
     return out_data
