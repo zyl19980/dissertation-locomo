@@ -67,10 +67,10 @@ cd e:\1-ntu\dissertation\论文代码\locomo\locomo
 python scripts/run_ollama_eval.py
 
 # 指定不同的模型
-python scripts/run_ollama_eval.py --model qwen2.5:7b
+python scripts/run_ollama_eval.py --model qwen2.5:3b
 
 # 指定数据文件
-python scripts/run_ollama_eval.py --model qwen3-8b --data-file data/locomo10.json
+python scripts/run_ollama_eval.py --model qwen2.5:3b --data-file data/locomo10.json
 
 # 覆盖已有结果
 python scripts/run_ollama_eval.py --model qwen3-8b --overwrite

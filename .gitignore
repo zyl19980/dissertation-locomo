@@ -1,1 +1,9 @@
-data\
+data/
+logs/
+outputs/
+prompt_examples/
+2025_*
+%log%
+*.pbs
+*.txt
+__pycache__/

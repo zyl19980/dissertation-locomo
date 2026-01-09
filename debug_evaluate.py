@@ -16,12 +16,12 @@ from tqdm import tqdm
 import argparse
 
 # 导入所有需要的模块
-try:
-    from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
-    print("✓ 成功导入 global_methods")
-except Exception as e:
-    print(f"✗ 导入 global_methods 失败: {e}")
-    traceback.print_exc()
+# try:
+#     from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
+#     print("✓ 成功导入 global_methods")
+# except Exception as e:
+#     print(f"✗ 导入 global_methods 失败: {e}")
+#     traceback.print_exc()
 
 try:
     from task_eval.evaluation import eval_question_answering

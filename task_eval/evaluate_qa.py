@@ -5,18 +5,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import os, json
 from tqdm import tqdm
 import argparse
-from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
+# from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
 from task_eval.evaluation import eval_question_answering
 from task_eval.evaluation_stats import analyze_aggr_acc
-from task_eval.gpt_utils import get_gpt_answers
-from task_eval.claude_utils import get_claude_answers
-from task_eval.gemini_utils import get_gemini_answers
+# from task_eval.gpt_utils import get_gpt_answers
+# from task_eval.claude_utils import get_claude_answers
+# from task_eval.gemini_utils import get_gemini_answers
 from task_eval.hf_llm_utils import init_hf_model, get_hf_answers
 from task_eval.ollama_utils import get_ollama_answers
 from task_eval.extended_metrics import evaluate_qa_with_extended_metrics, print_metric_summary
 
 import numpy as np
-import google.generativeai as genai
+# import google.generativeai as genai
 
 def parse_args():
 

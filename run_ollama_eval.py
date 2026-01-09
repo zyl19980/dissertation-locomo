@@ -41,9 +41,9 @@ def main():
     parser = argparse.ArgumentParser(description='Ollama 模型评估脚本')
     parser.add_argument('--model', type=str, default='qwen3:8b',
                         help='Ollama 模型名称 (默认: qwen3:8b)')
-    parser.add_argument('--data-file', type=str, default='data/locomo10.json',
+    parser.add_argument('--data-file', type=str, default='dissertation-locomo/data/locomo10.json',
                         help='数据文件路径 (默认: data/locomo10.json)')
-    parser.add_argument('--out-dir', type=str, default='outputs',
+    parser.add_argument('--out-dir', type=str, default='dissertation-locomo/outputs',
                         help='输出目录 (默认: outputs)')
     parser.add_argument('--batch-size', type=int, default=1,
                         help='批处理大小 (默认: 1, 推荐保持为1以获得更好的稳定性)')
@@ -100,7 +100,7 @@ def main():
     # 构建评估命令
     cmd = [
         sys.executable,
-        'task_eval/evaluate_qa.py',
+        'dissertation-locomo/task_eval/evaluate_qa.py',
         '--data-file', args.data_file,
         '--out-file', output_file,
         '--model', args.model,
